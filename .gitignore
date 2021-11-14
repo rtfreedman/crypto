@@ -1,0 +1,7 @@
+.env
+data/
+bin/
+lib/
+.creds
+node_modules
+__pycache__
