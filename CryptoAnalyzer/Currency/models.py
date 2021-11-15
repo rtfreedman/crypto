@@ -5,6 +5,7 @@ from typing import Tuple, List, DefaultDict
 from hashlib import sha256
 from django.http import HttpResponseNotAllowed
 from django.utils import timezone
+from django.db.models import Q
 import pytz
 import datetime
 from decimal import Decimal
@@ -93,6 +94,7 @@ class Currency(models.Model):
         except Currency.DoesNotExist:
             return
         rates = []
+        # refactor me
         for from_elem, to_elem in permutations(currencies, 2):
             print(f'Running {from_elem.short_name}-{to_elem.short_name}')
             for start_date, end_date in cls.__datetime_generator(date_start, date_end, granularity):
@@ -179,14 +181,57 @@ class Rate(models.Model):
     volume = models.DecimalField(default=Decimal(0), max_digits=20, decimal_places=10)
     source = models.TextField(default='system')
 
-    def to_dict(self):
+    @classmethod
+    def get_data_from_range(cls, date_start: datetime.datetime, date_end: datetime.datetime, currencies_sn: List[str], base_currency_sn: str, max_returned: int = 1000, as_dict=False) -> DefaultDict[str, List[Rate]]:
+        # grab our currency objects
+        base_currency = Currency.objects.get(short_name=base_currency_sn)
+        currencies = Currency.objects(short_name__in=currencies_sn)
+        # grab the rates based on currency
+        rate_data = {}
+        for currency in currencies:
+            currency_rates = Rate.objects.filter(
+                Q(timestamp__range=(date_start, date_end), from_currency=base_currency, to_currency=currency) |
+                Q(timestamp__range=(date_start, date_end), from_currency=currency, to_currency=base_currency)
+            ).order_by("+timestamp")
+            # order by timestamp so we can adjust evenly-ish for the max_returned (provided data is evenly distributed)
+            result_count = currency_rates.count()
+            min_timedelta = None
+            if result_count > max_returned:
+                min_timedelta = (date_end - date_start) / max_returned
+            last_rate_time = None
+            yielded_rates = []
+            for rate in currency_rates.iterator(chunk_size=1):
+                if last_rate_time and min_timedelta and rate.timestamp > (last_rate_time + min_timedelta):
+                    continue
+                last_rate_time = rate.timestamp
+                if as_dict:
+                    yielded_rates.append(rate.to_dict(base_currency=base_currency_sn))
+                else:
+                    yielded_rates.append(rate)
+            rate_data[currency.short_name] = yielded_rates
+        return rate_data
+
+    def to_dict(self, base_currency_sn: str = None):
+        if base_currency_sn == self.to_currency.short_name:
+            return {
+                'from_sn': self.to_currency.short_name,
+                'from_id': self.to_currency.id,
+                'to_sn': self.from_currency.short_name,
+                'to_id': self.from_currency.id,
+                'timestamp': self.timestamp,
+                'low_rate': 1/self.high_rate,
+                'high_rate': 1/self.low_rate,
+                'open_rate': 1/self.open_rate,
+                'close_rate': 1/self.close_rate,
+                'volume': self.volume,
+            }
         return {
             'from_sn': self.from_currency.short_name,
             'from_id': self.from_currency.id,
             'to_sn': self.to_currency.short_name,
             'to_id': self.to_currency.id,
             'timestamp': self.timestamp,
-            'rate': self.low_rate,
+            'low_rate': self.low_rate,
             'high_rate': self.high_rate,
             'open_rate': self.open_rate,
             'close_rate': self.close_rate,

@@ -6,7 +6,7 @@ import Currency.models as cm
 from django.shortcuts import render
 from django.views.generic import TemplateView
 from django.http import HttpResponse, JsonResponse
-from Currency.models import Currency
+from Currency.models import Currency, Rate
 import logging
 import settings
 
@@ -44,6 +44,24 @@ class CurrencyView(TemplateView):
     }
 
     @classmethod
+    def retrieve_range(cls, request):
+        try:
+            currencies = list({currency.strip().lower() for currency in request.headers['currencies'].split(',')})
+            base_currency = request.headers['baseCurrency'].lower()
+            try:
+                currencies.remove(base_currency)
+            except ValueError:
+                pass
+            start_date = datetime.fromisoformat(request.headers['startDate'])
+            end_date = datetime.fromisoformat(request.headers['endDate'])
+        except Exception as e:
+            logger.warning(f'Exception raised when reading headers from request: {e}.')
+            return HttpResponseBadRequest()
+        return JsonResponse({
+            'rates': Rate.get_data_from_range(start_date, end_date, currencies, base_currency, as_dict=True)
+        })
+
+    @ classmethod
     def target_date(cls, request):
         # TODO: move this to middleware or smth
         if not cls.__authenticated:
@@ -63,7 +81,7 @@ class CurrencyView(TemplateView):
             ]
         })
 
-    @classmethod
+    @ classmethod
     def refresh_data(cls, request):
         if not cls.__authenticated:
             authenticate()
