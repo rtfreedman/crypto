@@ -30,5 +30,7 @@ urlpatterns = [
     path('', temporary_redirect('/currency')),
     path('currency', CurrencyView.as_view()),
     path('currency/refresh', CurrencyView.refresh_data),
-    path('currency/target', CurrencyView.target_date)
+    path('currency/target', CurrencyView.target_date),
+    path('currency/range', CurrencyView.retrieve_range),
+    path('currency/calculate', CurrencyView.calculate_exchange_rate)
 ]

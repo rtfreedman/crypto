@@ -96,14 +96,13 @@ WSGI_APPLICATION = 'CryptoAnalyzer.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'postgres',
-        'USER': 'user',
-        'PASSWORD': 'changeme',
-        'HOST': 'localhost',
-        'PORT': 5420,
+        'NAME': os.getenv('CRYPTO_DB', 'postgres'),
+        'USER': os.getenv('CRYPTO_DB_USER', 'user'),
+        'PASSWORD': os.getenv('CRYPTO_DB_PASS', 'changeme'),
+        'HOST': os.getenv('CRYPTO_DB_HOST', 'localhost'),
+        'PORT': int(os.getenv('CRYPTO_DB_PORT', 5420)),
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/3.2/ref/settings/#auth-password-validators

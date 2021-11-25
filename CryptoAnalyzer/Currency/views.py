@@ -19,7 +19,7 @@ if settings.DEBUG:
 
 def authenticate():
     global __authenticated
-    cm.authenticate('https://api.pro.coinbase.com/{}', os.getenv('CBAAPIKEY'), os.getenv('CBAAPISECRET'))
+    cm.authenticate('https://api.pro.coinbase.com/{}', os.getenv('CBA_API_KEY'), os.getenv('CBA_API_SECRET'))
     __authenticated = True
 
 
@@ -28,7 +28,7 @@ class CurrencyView(TemplateView):
     __authenticated = False
     data = {
         'template_script_url': '/static/scripts/currency.js',
-        'all_currencies': [c.to_dict() for c in Currency.objects.all()],
+        'all_currencies': [],
         'allowed_currencies': [],
         'allowed_granularities': [
             {'name': '1 min', 'value': 60},
@@ -46,19 +46,19 @@ class CurrencyView(TemplateView):
     @classmethod
     def retrieve_range(cls, request):
         try:
-            currencies = list({currency.strip().lower() for currency in request.headers['currencies'].split(',')})
-            base_currency = request.headers['baseCurrency'].lower()
-            try:
-                currencies.remove(base_currency)
-            except ValueError:
-                pass
+            currencies = Currency.objects.filter(short_name__in=list(
+                {currency.strip().lower() for currency in request.headers['currencies'].split(',')}
+            ))
+            base_currency = Currency.objects.get(short_name=request.headers['baseCurrency'].lower())
             start_date = datetime.fromisoformat(request.headers['startDate'])
             end_date = datetime.fromisoformat(request.headers['endDate'])
+            max_returned = request.headers.get('max_returned', 1000)
         except Exception as e:
             logger.warning(f'Exception raised when reading headers from request: {e}.')
-            return HttpResponseBadRequest()
+            return HttpResponseBadRequest('Bad Headers Supplied')
+        all_rates = Rate.get_data_from_range(start_date, end_date, currencies, base_currency, max_returned=max_returned, as_dict=True)
         return JsonResponse({
-            'rates': Rate.get_data_from_range(start_date, end_date, currencies, base_currency, as_dict=True)
+            'data': [{'currency': currency, 'rates': rates} for currency, rates in all_rates.items()]
         })
 
     @ classmethod
@@ -68,7 +68,6 @@ class CurrencyView(TemplateView):
             authenticate()
         try:
             currencies = [currency.strip().lower() for currency in request.headers['currencies'].split(',')]
-            base_currency = request.headers['baseCurrency'].lower()
             start_date = datetime.fromisoformat(request.headers['startDate'])
             end_date = datetime.fromisoformat(request.headers['endDate'])
             granularity = int(request.headers['granularity'])
@@ -81,6 +80,18 @@ class CurrencyView(TemplateView):
             ]
         })
 
+    @classmethod
+    def calculate_exchange_rate(cls, request):
+        if not cls.__authenticated:
+            authenticate()
+        try:
+            from_currency = Currency.objects.get(short_name=request.headers['fromCurrency'].lower().strip())
+            to_currency = Currency.objects.get(short_name=request.headers['toCurrency'].lower().strip())
+            via_currency = Currency.objects.get(short_name=request.headers['viaCurrency'].lower().strip())
+        except Currency.DoesNotExist as e:
+            pass
+        Rate.calculate(from_currency, to_currency, via_currency)
+
     @ classmethod
     def refresh_data(cls, request):
         if not cls.__authenticated:
@@ -88,6 +99,7 @@ class CurrencyView(TemplateView):
         cls.data['all_currencies'] = [
             c.to_dict() for c in Currency.collect_currency_info()
         ]
+        cls.data['all_currencies'].sort(key=lambda elem: elem['short_name'])
         return JsonResponse({
             'currencies': [
                 c.to_dict() for c in Currency.collect_currency_info()
@@ -97,4 +109,6 @@ class CurrencyView(TemplateView):
     def get(self, request):
         if not self.__authenticated:
             authenticate()
+        self.__class__.data['all_currencies'] = [c.to_dict() for c in Currency.objects.all()]
+        self.__class__.data['all_currencies'].sort(key=lambda elem: elem['short_name'])
         return render(request, 'currency.html', CurrencyView.data)

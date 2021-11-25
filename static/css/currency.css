@@ -1,0 +1,4 @@
+#currencySelectPicker > .dropdown-toggle[title=Currencies],
+#currencySelectPicker > .dropdown-toggle[title=Currencies]:hover,
+#currencySelectPicker > .dropdown-toggle[title=Currencies]:focus,
+#currencySelectPicker > .dropdown-toggle[title=Currencies]:active { color: green; }

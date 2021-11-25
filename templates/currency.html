@@ -16,13 +16,15 @@
         href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/css/bootstrap-datepicker.min.css"
         integrity="sha512-mSYUmp1HYZDFaVKK//63EcZq4iFWFjxSL+Z3T/aCt4IO9Cejm03q3NKKYN6pFQzY0SBOr8h+eCIAZHPXcpZaNw=="
         crossorigin="anonymous" referrerpolicy="no-referrer" />
-    <!-- Bootstrap CSS -->
+    <!-- Bootstrap Select -->
     <link rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.13.1/css/bootstrap-select.css"
         integrity="sha384-tuwm8iDIss4OBEs0iU9s0ONSsiCuS39offygIe6MJIo8qaGLBxwJ1v+u8eK0Ltgg" crossorigin="anonymous" />
-    <!-- bootstrap -->
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css"
-        integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous" />
+    <!-- Bootstrap -->
+    <!-- <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css"
+        integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous" /> -->
+    <!-- Bootstrap Dark Mode -->
+    <link rel="stylesheet" href="/static/css/bootstrap-dark.min.css" />
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css"
         integrity="sha512-iBBXm8fW90+nuLcSKlbmrPcLa0OT92xO1BIsZ+ywDWZCvqsWgccV3gFoRBv0z+8dLJgyAHIhR35VZc2oM/gI1w=="
@@ -38,7 +40,8 @@
     <h1>CryptoAnalysis - Currency Explorer</h1>
     <!-- if I'm ever inclined to go down to the hourly level for data collects then this may be useful. Right now we assume 0:00 UTC start_date to 0:00 end_date -->
     <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/clockpicker/0.0.7/jquery-clockpicker.min.js" integrity="sha512-x0qixPCOQbS3xAQw8BL9qjhAh185N7JSw39hzE/ff71BXg7P1fkynTqcLYMlNmwRDtgdoYgURIvos+NJ6g0rNg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script> -->
-
+    <!-- d3 if we ever need it -->
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.1.1/d3.min.js" integrity="sha512-COTaPOlz12cG4fSfcBsxZsjauBAyldqp+8FQUM/dZHm+ts/jR4AFoJhCqxy8K10Jrf3pojfsbq7fAPTb1XaVkg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script> -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"
         integrity="sha512-894YE6QWD5I59HgZOGReFYm4dnWc1Qt5NtvYSaNcOP+u1T9qYdvdihz0PPSiiqn/+/3e7Jo4EaG7TubfWGUrMQ=="
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
@@ -57,64 +60,108 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.6.0/chart.min.js"
         integrity="sha512-GMGzUEevhWh8Tc/njS0bDpwgxdCJLQBWG3Z2Ct+JGOpVnEmjvNx6ts4v6A2XJf1HOrtOsfhv3hBKpK9kE5z8AQ=="
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="/static/js/luxon.min.js"
+        integrity="sha512-R3qVfQx4LUWixeZgtptH0NDb+/FB8qVflpPQUKzDQlz1zKE3BiN4wG3aBUwzabgMo/45MXHucjcC2/BWBxMJwQ=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@^1"></script>
     <div id="content">
-        <div class="card" style="width: 18rem;">
-            <button id="refreshButton" onclick="refreshData()" type="button" class="btn btn-primary">
-                Refresh Currencies
-            </button>
-        </div>
-        {% block content %}{% endblock %}
-        <div class="card" style="width: 18rem;">
-            <div class="card-body">
-                <!-- card title -->
-                <h5 class="card-title">Collect Currency Rates</h5>
-                <!-- <h6 class="card-subtitle mb-2 text-muted">Card subtitle</h6> -->
-                <!-- currency picker -->
-                <select id="currencySelectPicker" title="Currencies" class="selectpicker ma1" multiple
-                    data-live-search="true">
-                    {% for currency in all_currencies %}
-                    <option>{{ currency.short_name }}</option>
-                    {% endfor %}
-                </select>
-                <!-- start date picker -->
-                <form method="post">
-                    <div id="startPickerContainer" class="form-group">
-                        <!-- Date input -->
-                        <label class="control-label" for="date">Start Date</label>
-                        <input class="form-control" id="startDatePicker" name="startDatePicker" placeholder="yyyy-mm-dd"
-                            type="text" />
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-xs-5">
+                    <div class="card" style="width: 20rem;">
+                        <div class="text-start align-middle ma1">
+                            <button id="refreshButton" onclick="refreshData()" type="button" class="btn btn-primary">
+                                Refresh
+                            </button>
+                            <button class="btn btn-primary" type="button" data-toggle="collapse"
+                                data-target="#collapsableCollectCard" aria-expanded="false"
+                                aria-controls="collapsableCollectCard">
+                                Controls
+                            </button>
+                            <button class="btn btn-primary" type="button" data-toggle="collapse" data-target="#collaps"
+                                aria-expanded="false" aria-controls="collapsableCollectCard">
+                                Calculate Inter-currency Exchange Rates
+                            </button>
+                        </div>
+                        <div class="collapse" id="collapsableCollectCard">
+                            <div class="card" style="width: 18rem;">
+                                <div class="card-body">
+                                    <!-- card title -->
+                                    <h5 class="card-title">Collect Currency Rates</h5>
+                                    <!-- <h6 class="card-subtitle mb-2 text-muted">Card subtitle</h6> -->
+                                    <!-- currency picker -->
+                                    <select id="currencySelectPicker" onchange="currencySelectorChange()"
+                                        title="Currencies" class="selectpicker ma1" multiple data-live-search="true">
+                                        {% for currency in all_currencies %}
+                                        <option>{{ currency.short_name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <!-- start date picker -->
+                                    <form method="post">
+                                        <div id="startPickerContainer" class="form-group">
+                                            <!-- Date input -->
+                                            <label class="control-label" for="date">Start Date</label>
+                                            <input class="form-control" id="startDatePicker" name="startDatePicker"
+                                                placeholder="yyyy-mm-dd" type="text" />
+                                        </div>
+                                    </form>
+                                    <!-- end date picker -->
+                                    <form method="post">
+                                        <div id="endPickerContainer" class="form-group">
+                                            <!-- Date input -->
+                                            <label class="control-label" for="date">End Date</label>
+                                            <input class="form-control" id="endDatePicker" name="endDatePicker"
+                                                placeholder="yyyy-mm-dd" type="text" />
+                                        </div>
+                                    </form>
+                                    <!-- granularity select picker -->
+                                    <select id="granularitySelectPicker" onchange="updateGranularity()"
+                                        title="Granularities" class="selectpicker ma1" data-live-search="true">
+                                        {% for granularity in allowed_granularities %}
+                                        <option value="{{ granularity.value }}">{{ granularity.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <!-- currency base select picker -->
+                                    <div id="currencyBasePicker">
+                                        <select id="currencyBaseSelector" disabled="true"
+                                            title="Base Currency (y-axis unit)" onchange="baseCurrencyChange()"
+                                            class="selectpicker ma1" data-live-search="true">
+                                        </select>
+                                    </div>
+                                    <!-- active currency picker -->
+                                    <div id="activeCurrencyPicker">
+                                        <select id="activeCurrencySelector" disabled="true"
+                                            title="Active Currencies (y-axis)" onchange="activeCurrencyChange()"
+                                            class="selectpicker ma1" multiple data-live-search="true">
+                                        </select>
+                                    </div>
+                                    <button class="btn btn-primary btn-sm" type="button" data-toggle="collapse"
+                                        data-target="#advancedOptions" aria-expanded="false"
+                                        aria-controls="advancedOptions">
+                                        Advanced Options
+                                    </button>
+                                    <div class="collapse" id="advancedOptions">
+                                        <select id="advancedRatePicker" title="Rates (optional)"
+                                            class="selectpicker ma1" multiple data-live-search="true">
+                                            <option selected="true" value="low_rate">Low</option>
+                                            <option selected="true" value="high_rate">High</option>
+                                            <option selected="true" value="open_rate">Open</option>
+                                            <option selected="true" value="close_rate">Close</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <!-- actions -->
+                                <button id="collectRun" onclick="runCollect()" class="btn btn-primary btn-sm ma1">
+                                    Run Collect</button>
+                                <button id="retrieveRun" onclick="retrieveRun()" class="btn btn-primary btn-sm ma1">
+                                    Retrieve Collected</button>
+                            </div>
+                        </div>
                     </div>
-                </form>
-                <!-- end date picker -->
-                <form method="post">
-                    <div id="endPickerContainer" class="form-group">
-                        <!-- Date input -->
-                        <label class="control-label" for="date">End Date</label>
-                        <input class="form-control" id="endDatePicker" name="endDatePicker" placeholder="yyyy-mm-dd"
-                            type="text" />
-                    </div>
-                </form>
-                <!-- currency select picker -->
-                <select id="granularitySelectPicker" title="Granularities" class="selectpicker ma1"
-                    data-live-search="true">
-                    {% for granularity in allowed_granularities %}
-                    <option value="{{ granularity.value }}">{{ granularity.name }}</option>
-                    {% endfor %}
-                </select>
-                <!-- currency base select picker -->
-                <div id="currencyBasePicker">
-                    <select id="currencyBaseSelector" disabled="true" title="Base Currency (x-axis)"
-                        class="selectpicker ma1" data-live-search="true">
-                    </select>
                 </div>
-                <p class="card-text">Use this to retrieve rates every granularity seconds from start date to end date
-                    between all of the following currencies: </p>
-                <!-- actions -->
-                <a href="#" id="collectRun" class="card-link">Run Collect</a>
-                <a href="#" id="retrieveRun" class="card-link">Retrieve Collected</a>
+                <canvas id="lineChart"></canvas>
             </div>
         </div>
-        <canvas id="line-chart" width="800" height="450"></canvas>
     </div>
     <script src="{{template_script_url}}"></script>
 </body>
